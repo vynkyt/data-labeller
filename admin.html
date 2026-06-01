@@ -1,0 +1,107 @@
+<!doctype html>
+<html>
+  <head>
+    <title>admin</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+  </head>
+
+  <body class="flex flex-col m-8">
+    <h3>User request:</h3>
+    <h3>URLs</h3>
+    <ol id="url-list"></ol>
+    <div class="flex flex-col">
+        <textarea id="url-in" class="border"></textarea>
+        <button class="bg-white rounded rounded-full my-2 w-md border hover:cursor-pointer hover:bg-violet-600" id="url-button" onclick="urlbutton()">Submit URLs</button>
+    </div>
+        <h3>Categories</h3>
+        <ol id="category-list"></ol>
+        <div class="flex flex-col">
+            <textarea id="category-in" class="border"></textarea>
+            <button class="bg-white rounded rounded-full my-2 w-md border hover:cursor-pointer hover:bg-violet-600" id="category-button" onclick="categorybutton()">Submit categories</button>
+        </div>
+    
+    <button class="bg-white rounded rounded-full my-2 w-md border hover:cursor-pointer hover:bg-violet-600 disabled:opacity-50 disabled:cursor-not-allowed" id="all-button" onclick="submitall()">Submit URLs and Categories</button>
+    
+        
+</body>
+
+<script>
+    const categoryInput = document.getElementById('category-in');
+    const categoryList = document.getElementById('category-list');
+    const urlInput = document.getElementById('url-in');
+    const urlList = document.getElementById('url-list');
+    // const categoryButton = document.getElementById("category-button");
+
+    let savedCats = JSON.parse(localStorage.getItem('categories')) || [];
+
+    const renderCatList = () => {
+    categoryList.innerHTML = savedCats
+        .map(item => `<li>${item}</li>`)
+        .join('');
+    };
+
+    function categorybutton() {
+        const newValue = categoryInput.value.trim();
+        if (newValue) {
+            // Add to our array
+            savedCats.push(newValue);
+            // Save updated array back to localStorage
+            localStorage.setItem('categories', JSON.stringify(savedCats));
+        }
+        renderCatList()
+
+    }
+
+    let savedUrls = JSON.parse(localStorage.getItem('urls')) || [];
+
+    const renderUrlList = () => {
+    urlList.innerHTML = savedUrls
+        .map(item => `<li>${item}</li>`)
+        .join('');
+    };
+
+    function urlbutton() {
+        const newValue = urlInput.value.trim();
+        if (newValue) {
+            // Add to our array
+            savedUrls.push(newValue);
+            // Save updated array back to localStorage
+            localStorage.setItem('urls', JSON.stringify(savedUrls));
+        }
+        renderUrlList()
+    }
+
+    async function submitall() {
+        const url = 'http://localhost:8000/createjob';
+        const data = {savedCats, savedUrls, "client_id": "apple"};
+
+        document.getElementById('all-button').disabled = true;
+
+        try {
+            const response = await fetch(url, {
+                method: 'POST', // Specify the method
+                headers: {
+                'Content-Type': 'application/json' // Tell the server you're sending JSON
+                },
+                body: JSON.stringify(data) // Convert the object to a string
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            const result = await response.json();
+            console.log('Success:', result);
+        } catch (error) {
+            console.error('Error:', error);
+        }
+
+        localStorage.clear();
+            
+        urlList.innerHTML = ""
+        categoryList.innerHTML = ""
+        location.reload();
+    }
+</script>
+</html>

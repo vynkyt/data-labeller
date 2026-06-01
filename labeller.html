@@ -1,0 +1,86 @@
+<!doctype html>
+<html>
+  <head>
+    <title>labeller</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+  </head>
+
+  <body class="flex flex-col m-8">
+    <button class="bg-white rounded rounded-full my-2 w-md border hover:cursor-pointer hover:bg-violet-600" id="url-button" onclick="gettask()">Get Task</button>
+    <h2>Label this:</h2>
+    <img id="image" src=""> </img>
+    <video id="video" src=""></video>
+    <audio id="audio" src=""></audio>
+    <div class="flex flex-col">
+        <h3>Choose one or more categories:</h3>
+        <div id="category-options">
+<!-- <input id="default-checkbox" type="checkbox" value="" class="w-4 h-4 border border-default-medium rounded-xs bg-neutral-secondary-medium focus:ring-2 focus:ring-brand-soft">
+    <label for="default-checkbox" class="select-none ms-2 text-sm font-medium text-heading">Default checkbox</label> -->
+        </div>
+        <h3>Other descriptions:</h3>
+        <textarea id="label" class="border"></textarea>
+        <button class="bg-white rounded rounded-full my-2 w-md border hover:cursor-pointer hover:bg-violet-600" id="url-button" onclick="urlbutton()">Submit Labels</button>
+    </div>
+
+</body>
+<script>
+    const image = document.getElementById("image");
+    const video = document.getElementById("video");
+    const audio = document.getElementById("audio");
+    const categoryOptions = document.getElementById("category-options");
+
+    async function gettask() {
+        const url = 'http://localhost:8000/task';
+        let result = null
+
+        try {
+            const response = await fetch(url, {
+                method: 'GET', // Specify the method
+                headers: {
+                'Content-Type': 'application/json'
+                },
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            result = await response.json();
+            console.log('Success:', result);
+            
+            let task_url = result.task[0].url;
+            let ext = task_url.split('.').pop().toLowerCase(); 
+
+            const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+            const videoExtensions = ['mp4', 'webm', 'ogg', 'mov'];
+            const audioExtensions = ['mp3', 'wav', 'aac', 'm4a'];
+
+            if (imageExtensions.includes(ext)) {
+                image.src = task_url;
+            } else if (videoExtensions.includes(ext)) {
+                video.src = task_url;
+            } else if (audioExtensions.includes(ext)) {
+                audio.src = task_url;
+            } else {
+                console.error('Error:', "Task url is not an image, video or audio that can be labelled.")
+            }
+            
+
+        } catch (error) {
+            console.error('Error:', "error");
+        }
+
+    let task_cats = result.task[0].categories.split(", ")
+    let innerHTMLcategories = ""
+    for (let i=0; i < task_cats.length; i++) {
+        innerHTMLcategories += 
+        `<div class="flex items-center mb-4"><input id="default-checkbox" type="checkbox" value="" class="w-4 h-4 border border-default-medium rounded-xs bg-neutral-secondary-medium focus:ring-2 focus:ring-brand-soft"> <label for="default-checkbox" class="select-none ms-2 text-sm font-medium text-heading">${task_cats[i]}</label></div>`
+    }
+
+    categoryOptions.innerHTML = innerHTMLcategories
+
+        }
+</script>
+
+</html>

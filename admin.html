@@ -45,9 +45,7 @@
     function categorybutton() {
         const newValue = categoryInput.value.trim();
         if (newValue) {
-            // Add to our array
             savedCats.push(newValue);
-            // Save updated array back to localStorage
             localStorage.setItem('categories', JSON.stringify(savedCats));
         }
         renderCatList()
@@ -65,9 +63,7 @@
     function urlbutton() {
         const newValue = urlInput.value.trim();
         if (newValue) {
-            // Add to our array
             savedUrls.push(newValue);
-            // Save updated array back to localStorage
             localStorage.setItem('urls', JSON.stringify(savedUrls));
         }
         renderUrlList()
@@ -81,11 +77,11 @@
 
         try {
             const response = await fetch(url, {
-                method: 'POST', // Specify the method
+                method: 'POST', 
                 headers: {
-                'Content-Type': 'application/json' // Tell the server you're sending JSON
+                'Content-Type': 'application/json' 
                 },
-                body: JSON.stringify(data) // Convert the object to a string
+                body: JSON.stringify(data)
             });
 
             if (!response.ok) {

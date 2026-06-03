@@ -10,9 +10,10 @@
   <body class="flex flex-col m-8">
     <button class="bg-white rounded rounded-full my-2 w-md border hover:cursor-pointer hover:bg-violet-600" id="url-button" onclick="gettask()">Get Task</button>
     <h2>Label this:</h2>
-    <img id="image" src=""> </img>
-    <video id="video" src=""></video>
-    <audio id="audio" src=""></audio>
+    <img id="image" style="height: 0px; width: auto;" src=""></img>
+    <video id="video" style="height: 0px; width: auto;" src=""></video>
+    <audio id="audio" style="height: 0px; width: auto;" src=""></audio>
+    <iframe id="iframe" style="height: 0px; width: auto;" src=""></iframe>
     <div class="flex flex-col">
         <h3>Choose one or more categories:</h3>
         <div id="category-options">
@@ -29,6 +30,7 @@
     const image = document.getElementById("image");
     const video = document.getElementById("video");
     const audio = document.getElementById("audio");
+    const iframe = document.getElementById("iframe")
     const categoryOptions = document.getElementById("category-options");
 
     async function gettask() {
@@ -58,10 +60,16 @@
 
             if (imageExtensions.includes(ext)) {
                 image.src = task_url;
+                image.style.height = "300px"
             } else if (videoExtensions.includes(ext)) {
                 video.src = task_url;
+                video.style.height = "300px"
             } else if (audioExtensions.includes(ext)) {
                 audio.src = task_url;
+                audio.style.height = "300px"
+            } else if (task_url.includes("embed")) {
+                iframe.src = task_url;
+                iframe.style.height = "300px"
             } else {
                 console.error('Error:', "Task url is not an image, video or audio that can be labelled.")
             }

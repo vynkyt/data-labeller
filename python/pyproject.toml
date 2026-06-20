@@ -5,6 +5,7 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+    "apscheduler>=3.11.2",
     "fastapi[standard]>=0.136.1",
     "libsql>=0.1.11",
 ]

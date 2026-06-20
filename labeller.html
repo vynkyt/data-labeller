@@ -8,6 +8,8 @@
   </head>
 
   <body class="flex flex-col m-8">
+    <h2>Name:</h2>
+    <textarea id="labeller_id" class="border"></textarea>
     <button class="bg-white rounded rounded-full my-2 w-md border hover:cursor-pointer hover:bg-violet-600" id="url-button" onclick="gettask()">Get Task</button>
     <h2>Label this:</h2>
     <img id="image" style="height: 0px; width: auto;" src=""></img>
@@ -22,7 +24,7 @@
         </div>
         <h3>Other descriptions:</h3>
         <textarea id="label" class="border"></textarea>
-        <button class="bg-white rounded rounded-full my-2 w-md border hover:cursor-pointer hover:bg-violet-600" id="url-button" onclick="urlbutton()">Submit Labels</button>
+        <button class="bg-white rounded rounded-full my-2 w-md border hover:cursor-pointer hover:bg-violet-600 disabled:opacity-50 disabled:cursor-not-allowed" id="submitlabels" onclick="submitlabels()">Submit Labels</button>
     </div>
 
 </body>
@@ -30,8 +32,11 @@
     const image = document.getElementById("image");
     const video = document.getElementById("video");
     const audio = document.getElementById("audio");
-    const iframe = document.getElementById("iframe")
+    const iframe = document.getElementById("iframe");
+    const labeller_id = document.getElementById("labeller_id").value;
     const categoryOptions = document.getElementById("category-options");
+    let task_id = null
+    let lenLabels = 0
 
     async function gettask() {
         const url = 'http://localhost:8000/task';
@@ -52,6 +57,7 @@
             console.log('Success:', result);
             
             let task_url = result.task[0].url;
+            task_id = result.task[0].task_id;
             let ext = task_url.split('.').pop().toLowerCase(); 
 
             const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
@@ -73,22 +79,58 @@
             } else {
                 console.error('Error:', "Task url is not an image, video or audio that can be labelled.")
             }
-            
-
         } catch (error) {
             console.error('Error:', "error");
         }
 
-    let task_cats = result.task[0].categories.split(", ")
-    let innerHTMLcategories = ""
-    for (let i=0; i < task_cats.length; i++) {
-        innerHTMLcategories += 
-        `<div class="flex items-center mb-4"><input id="default-checkbox" type="checkbox" value="" class="w-4 h-4 border border-default-medium rounded-xs bg-neutral-secondary-medium focus:ring-2 focus:ring-brand-soft"> <label for="default-checkbox" class="select-none ms-2 text-sm font-medium text-heading">${task_cats[i]}</label></div>`
+        let task_cats = result.task[0].categories.split(", ")
+        let innerHTMLcategories = ""
+        lenLabels = task_cats.length
+        for (let i=0; i < lenLabels; i++) {
+            innerHTMLcategories += 
+            `<div class="flex items-center mb-4"><input id="default-checkbox-${i}" type="checkbox" value="${task_cats[i]}" class="w-4 h-4 border border-default-medium rounded-xs bg-neutral-secondary-medium focus:ring-2 focus:ring-brand-soft"> <label for="default-checkbox" class="select-none ms-2 text-sm font-medium text-heading">${task_cats[i]}</label></div>`
+        }
+
+        categoryOptions.innerHTML = innerHTMLcategories
     }
 
-    categoryOptions.innerHTML = innerHTMLcategories
+    async function submitlabels() {
+        const url = 'http://localhost:8000/updatelabel';
+        document.getElementById('submitlabels').disabled = true;
+        const labeller_id = document.getElementById("labeller_id").value;
+        let label = [];
 
+        for (j=0; j < lenLabels; j++) {
+            const checkbox = document.getElementById(`default-checkbox-${j}`);
+            const otherlabels = document.getElementById('label').value;
+            let checkboxlabels = null
+
+            if (checkbox.checked) {
+                checkboxlabels = checkbox.value
+                label.push(checkboxlabels, otherlabels)
+            } 
         }
+
+        const data = {label, labeller_id, task_id};
+        console.log(data)
+
+        try {
+            const response = await fetch(url, {
+                method: 'POST', 
+                headers: {
+                'Content-Type': 'application/json' 
+                },
+                body: JSON.stringify(data)
+            });
+            if (response.ok) {
+                location.reload()
+            } else {
+                window.alert(response.status)
+            }
+        } catch (error) {
+            console.error('Error:', error);
+        }
+    }
 </script>
 
 </html>

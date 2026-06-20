@@ -6,12 +6,34 @@ import uuid
 import logging
 import sys
 from fastapi.middleware.cors import CORSMiddleware
+from contextlib import asynccontextmanager
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from typing import cast
 import time
 
 logger = logging.getLogger('uvicorn.error')
 logger.setLevel(logging.INFO)
 
+# def task():
+#     logger.info("hi")
+
+# @asynccontextmanager
+# async def lifespan(app: FastAPI):
+#     # Initialize the scheduler
+#     scheduler = AsyncIOScheduler()
+    
+#     # Add an interval job (runs every 5 seconds)
+#     scheduler.add_job(task(), "interval", seconds=1)
+    
+#     # Start the scheduler
+#     scheduler.start()
+#     logger.info("Scheduler started.")
+    
+#     yield  # The FastAPI application runs while paused here
+    
+#     # Shutdown the scheduler cleanly when the app stops
+#     scheduler.shutdown()
+#     logger.info("Scheduler stopped.")
 
 app = FastAPI()
 

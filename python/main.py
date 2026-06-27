@@ -14,28 +14,28 @@ import time
 logger = logging.getLogger('uvicorn.error')
 logger.setLevel(logging.INFO)
 
-# def task():
-#     logger.info("hi")
+def task():
+    logger.info("hi")
 
-# @asynccontextmanager
-# async def lifespan(app: FastAPI):
-#     # Initialize the scheduler
-#     scheduler = AsyncIOScheduler()
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Initialize the scheduler
+    scheduler = AsyncIOScheduler()
     
-#     # Add an interval job (runs every 5 seconds)
-#     scheduler.add_job(task(), "interval", seconds=1)
+    # Add an interval job (runs every 5 seconds)
+    scheduler.add_job(task, "interval", seconds=600)
     
-#     # Start the scheduler
-#     scheduler.start()
-#     logger.info("Scheduler started.")
+    # Start the scheduler
+    scheduler.start()
+    logger.info("Scheduler started.")
     
-#     yield  # The FastAPI application runs while paused here
+    yield  # The FastAPI application runs while paused here
     
-#     # Shutdown the scheduler cleanly when the app stops
-#     scheduler.shutdown()
-#     logger.info("Scheduler stopped.")
+    # Shutdown the scheduler cleanly when the app stops
+    scheduler.shutdown()
+    logger.info("Scheduler stopped.")
 
-app = FastAPI()
+app = FastAPI(lifespan=lifespan)
 
 # origins = [
 #     "file:///C:/Users/User/OneDrive/Desktop/data-labeller/admin.html",
@@ -98,23 +98,23 @@ def hit_job(item: Job):
 
     for url in item.savedUrls:
         task_id = str(uuid.uuid4())
-        conn.execute("INSERT INTO Task (task_id, url, client_id, job_id, categories) VALUES (?, ?, ?, ?, ?)", 
-                     (task_id, url, item.client_id, id, categories,))
+        conn.execute("INSERT INTO Task (task_id, url, client_id, job_id, categories, status) VALUES (?, ?, ?, ?, ?, ?)", 
+                     (task_id, url, item.client_id, id, categories, 'open'))
         final_task_id_list.append(task_id)
     
+    conn.execute("INSERT INTO AI (job_id, total_tasks) VALUES (?, ?)", (id, len(final_task_id_list)))
     conn.execute("UPDATE Job SET task_id = ? WHERE job_id = ?", (str(final_task_id_list), id,))
     conn.commit()
 
 @app.get("/task")
 def get_task():
     task_obj: list[Task] = []  
-    for item in conn.execute("SELECT * from Task WHERE locked IS NULL LIMIT 1").fetchall():
-        task_obj.append(Task(item[0], item[1], item[2], item[3], item[4], item[5],item[6], item[7]))
-    current_time = time.time()
-    logger.info(task_obj)
-    lock_task = conn.execute("UPDATE Task SET locked = ? WHERE task_id = ?", (current_time, str(task_obj[0].task_id)))
+    for item in conn.execute("SELECT * from Task WHERE status = 'open' LIMIT 1").fetchall():
+        task_obj.append(Task(item[0], item[1], item[2], item[3], item[4], item[5],item[6], item[7], item[8]))
+
+    lock_task = conn.execute("UPDATE Task SET status = 'labelling' WHERE task_id = ?", [str(task_obj[0].task_id)])
     conn.commit()
-    logger.info(lock_task)
+    logger.info(str(task_obj[0].task_id))
     return {"task": task_obj}
 
 class UpdateLabel(BaseModel):
@@ -124,12 +124,12 @@ class UpdateLabel(BaseModel):
 
 @app.post("/updatelabel")
 def upd_label(task: UpdateLabel):
-    conn.execute("UPDATE Task SET label = ?, labeller_id = ? WHERE task_id = ?", (str(task.label), task.labeller_id, task.task_id))
+    conn.execute("UPDATE Task SET status = 'labelled', label = ?, labeller_id = ? WHERE task_id = ?", (str(task.label), task.labeller_id, task.task_id))
     conn.commit()
     return {"status": "success"}
 
 class Task:
-    def __init__(self, task_id, url, client_id, job_id, labeller_id, label, categories, locked):
+    def __init__(self, task_id, url, client_id, job_id, labeller_id, label, categories, status, qc_label):
         self.task_id = task_id
         self.url = url
         self.client_id = client_id
@@ -137,4 +137,5 @@ class Task:
         self.labeller_id = labeller_id
         self.label= label
         self.categories= categories
-        self.locked= locked
+        self.status= status
+        self.qc_label = qc_label

@@ -139,3 +139,17 @@ class Task:
         self.categories= categories
         self.status= status
         self.qc_label = qc_label
+
+@app.get("/countlabelled")
+def countlabelled():
+    job_ids = conn.execute("SELECT job_id from AI").fetchall()
+    logger.info(job_ids)
+    for i in job_ids:
+        labelled_task_count = conn.execute(f"SELECT COUNT(*) from Task WHERE status = 'labelled' AND job_id = '{str(i[0])}'").fetchall()
+        total_tasks = conn.execute(f"SELECT total_tasks from AI where job_id = '{str(i[0])}'").fetchall()
+        logger.info(f"id {str(i[0])} with task count:  {total_tasks}")
+        if labelled_task_count == total_tasks:
+            labelled_tasks = conn.execute(f"SELECT * from Task WHERE job_id = '{str(i[0])}'").fetchall()
+            logger.info(labelled_tasks)
+            return labelled_tasks
+    conn.commit()

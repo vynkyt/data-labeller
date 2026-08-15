@@ -7,130 +7,263 @@
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
   </head>
 
-  <body class="flex flex-col m-8">
-    <h2>Name:</h2>
-    <textarea id="labeller_id" class="border"></textarea>
-    <button class="bg-white rounded rounded-full my-2 w-md border hover:cursor-pointer hover:bg-violet-600" id="url-button" onclick="gettask()">Get Task</button>
-    <h2>Label this:</h2>
-    <img id="image" style="height: 0px; width: auto;" src=""></img>
-    <video id="video" style="height: 0px; width: auto;" src=""></video>
-    <audio id="audio" style="height: 0px; width: auto;" src=""></audio>
-    <iframe id="iframe" style="height: 0px; width: auto;" src=""></iframe>
-    <div class="flex flex-col">
-        <h3>Choose one or more categories:</h3>
-        <div id="category-options">
-<!-- <input id="default-checkbox" type="checkbox" value="" class="w-4 h-4 border border-default-medium rounded-xs bg-neutral-secondary-medium focus:ring-2 focus:ring-brand-soft">
-    <label for="default-checkbox" class="select-none ms-2 text-sm font-medium text-heading">Default checkbox</label> -->
-        </div>
-        <h3>Other descriptions:</h3>
-        <textarea id="label" class="border"></textarea>
-        <button class="bg-white rounded rounded-full my-2 w-md border hover:cursor-pointer hover:bg-violet-600 disabled:opacity-50 disabled:cursor-not-allowed" id="submitlabels" onclick="submitlabels()">Submit Labels</button>
+  <body class="min-h-screen bg-slate-100 px-4 py-8">
+
+    <!-- Screen 1: Name Entry -->
+    <div id="name-screen" class="mx-auto max-w-2xl space-y-6 rounded-lg bg-white p-6 shadow-sm">
+      <h2 class="text-lg font-semibold text-slate-900">Enter your name to start labelling:</h2>
+      <textarea id="name-input" class="w-full rounded-md border border-slate-300 p-2 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Your name"></textarea>
+      <button onclick="submitName()" class="w-full rounded-full bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 hover:cursor-pointer">Start Labelling</button>
     </div>
 
-</body>
-<script>
-    const image = document.getElementById("image");
-    const video = document.getElementById("video");
-    const audio = document.getElementById("audio");
-    const iframe = document.getElementById("iframe");
-    const labeller_id = document.getElementById("labeller_id").value;
-    const categoryOptions = document.getElementById("category-options");
-    let task_id = null
-    let lenLabels = 0
+    <!-- Screen 2: Labelling -->
+    <div id="labelling-screen" class="mx-auto w-full max-w-2xl space-y-6 rounded-lg bg-white p-6 shadow-sm" style="display: none;">
+      <div class="flex items-center justify-between">
+        <h2 class="text-lg font-semibold text-slate-900">Labelling as: <span id="display-name" class="text-blue-600"></span></h2>
+        <button onclick="changeName()" class="text-sm text-slate-500 hover:text-slate-700 hover:underline hover:cursor-pointer">Change name</button>
+      </div>
 
-    async function gettask() {
-        const url = 'http://localhost:8000/task';
-        let result = null
+      <div id="task-area" style="display: none;">
+        <h2 class="text-lg font-semibold text-slate-900">Label this:</h2>
+        <img id="image" style="height: 0px; width: auto;" src="">
+        <video id="video" style="height: 0px; width: auto;" src=""></video>
+        <audio id="audio" style="height: 0px; width: auto;" src=""></audio>
+        <iframe id="iframe" style="height: 0px; width: auto;" src=""></iframe>
 
-        try {
-            const response = await fetch(url, {
-                method: 'GET', // Specify the method
-                headers: {
-                'Content-Type': 'application/json'
-                },
-            });
+        <div class="flex flex-col gap-4 mt-4">
+          <h3 class="font-medium text-slate-700">Choose one or more categories:</h3>
+          <div id="category-options"></div>
+          <h3 class="font-medium text-slate-700">Other descriptions:</h3>
+          <textarea id="label" class="w-full rounded-md border border-slate-300 p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+          <button onclick="submitLabels()" id="submit-btn" class="w-full rounded-full bg-slate-900 px-4 py-2 text-white hover:bg-slate-800 hover:cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">Submit Labels</button>
+        </div>
+      </div>
 
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            result = await response.json();
-            console.log('Success:', result);
-            
-            let task_url = result.task[0].url;
-            task_id = result.task[0].task_id;
-            let ext = task_url.split('.').pop().toLowerCase(); 
+      <div id="no-task-message" style="display: none;" class="text-center py-8">
+        <p class="text-slate-500 text-lg">No tasks available right now.</p>
+        <p class="text-slate-400 text-sm mt-2">Check back later or refresh the page.</p>
+      </div>
 
-            const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
-            const videoExtensions = ['mp4', 'webm', 'ogg', 'mov'];
-            const audioExtensions = ['mp3', 'wav', 'aac', 'm4a'];
+      <div id="loading-message" class="text-center py-8">
+        <p class="text-slate-500">Loading task...</p>
+      </div>
+    </div>
 
-            if (imageExtensions.includes(ext)) {
-                image.src = task_url;
-                image.style.height = "300px"
-            } else if (videoExtensions.includes(ext)) {
-                video.src = task_url;
-                video.style.height = "300px"
-            } else if (audioExtensions.includes(ext)) {
-                audio.src = task_url;
-                audio.style.height = "300px"
-            } else if (task_url.includes("embed")) {
-                iframe.src = task_url;
-                iframe.style.height = "300px"
-            } else {
-                console.error('Error:', "Task url is not an image, video or audio that can be labelled.")
-            }
-        } catch (error) {
-            console.error('Error:', "error");
-        }
+  </body>
 
-        let task_cats = result.task[0].categories.split(", ")
-        let innerHTMLcategories = ""
-        lenLabels = task_cats.length
-        for (let i=0; i < lenLabels; i++) {
-            innerHTMLcategories += 
-            `<div class="flex items-center mb-4"><input id="default-checkbox-${i}" type="checkbox" value="${task_cats[i]}" class="w-4 h-4 border border-default-medium rounded-xs bg-neutral-secondary-medium focus:ring-2 focus:ring-brand-soft"> <label for="default-checkbox" class="select-none ms-2 text-sm font-medium text-heading">${task_cats[i]}</label></div>`
-        }
+  <script>
+    const API_BASE = "http://localhost:8000";
 
-        categoryOptions.innerHTML = innerHTMLcategories
+    // --- Screen management ---
+
+    function showNameScreen() {
+      document.getElementById("name-screen").style.display = "block";
+      document.getElementById("labelling-screen").style.display = "none";
     }
 
-    async function submitlabels() {
-        const url = 'http://localhost:8000/updatelabel';
-        document.getElementById('submitlabels').disabled = true;
-        const labeller_id = document.getElementById("labeller_id").value;
-        let label = [];
-
-        for (j=0; j < lenLabels; j++) {
-            const checkbox = document.getElementById(`default-checkbox-${j}`);
-            const otherlabels = document.getElementById('label').value;
-            let checkboxlabels = null
-
-            if (checkbox.checked) {
-                checkboxlabels = checkbox.value
-                label.push(checkboxlabels, otherlabels)
-            } 
-        }
-
-        const data = {label, labeller_id, task_id};
-        console.log(data)
-
-        try {
-            const response = await fetch(url, {
-                method: 'POST', 
-                headers: {
-                'Content-Type': 'application/json' 
-                },
-                body: JSON.stringify(data)
-            });
-            if (response.ok) {
-                location.reload()
-            } else {
-                window.alert(response.status)
-            }
-        } catch (error) {
-            console.error('Error:', error);
-        }
+    function showLabellingScreen() {
+      document.getElementById("name-screen").style.display = "none";
+      document.getElementById("labelling-screen").style.display = "block";
     }
-</script>
+
+    // --- Name / localStorage ---
+
+    function getStoredName() {
+      return localStorage.getItem("labeller_name");
+    }
+
+    function storeName(name) {
+      localStorage.setItem("labeller_name", name);
+    }
+
+    function clearName() {
+      localStorage.removeItem("labeller_name");
+    }
+
+    function submitName() {
+      const name = document.getElementById("name-input").value.trim();
+      if (!name) {
+        window.alert("Please enter your name.");
+        return;
+      }
+      storeName(name);
+      document.getElementById("display-name").textContent = name;
+      showLabellingScreen();
+      loadTask(name);
+    }
+
+    function changeName() {
+      clearName();
+      document.getElementById("name-input").value = "";
+      showNameScreen();
+    }
+
+    // --- Task loading ---
+
+    async function loadTask(labellerName) {
+      showLoading(true);
+      showNoTask(false);
+      showTaskArea(false);
+
+      try {
+        const url = `${API_BASE}/task?labeller_id=${encodeURIComponent(labellerName)}`;
+        const response = await fetch(url);
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const result = await response.json();
+
+        if (result.message) {
+          // No tasks available
+          showLoading(false);
+          showNoTask(true);
+          return;
+        }
+
+        const task = result.task[0];
+        showLoading(false);
+        showTaskArea(true);
+        renderTask(task);
+      } catch (error) {
+        console.error("Error loading task:", error);
+        showLoading(false);
+        showNoTask(true);
+      }
+    }
+
+    function showLoading(show) {
+      document.getElementById("loading-message").style.display = show ? "block" : "none";
+    }
+
+    function showNoTask(show) {
+      document.getElementById("no-task-message").style.display = show ? "block" : "none";
+    }
+
+    function showTaskArea(show) {
+      document.getElementById("task-area").style.display = show ? "block" : "none";
+    }
+
+    // --- Task rendering ---
+
+    let currentTaskId = null;
+    let categoryCount = 0;
+
+    function renderTask(task) {
+      currentTaskId = task.task_id;
+
+      // Render media
+      const mediaElements = ["image", "video", "audio", "iframe"];
+      mediaElements.forEach(id => {
+        const el = document.getElementById(id);
+        el.src = "";
+        el.style.height = "0px";
+      });
+
+      const url = task.url;
+      const ext = url.split(".").pop().toLowerCase();
+
+      const imageExtensions = ["jpg", "jpeg", "png", "gif", "webp"];
+      const videoExtensions = ["mp4", "webm", "ogg", "mov"];
+      const audioExtensions = ["mp3", "wav", "aac", "m4a"];
+
+      if (imageExtensions.includes(ext)) {
+        const el = document.getElementById("image");
+        el.src = url;
+        el.style.height = "300px";
+      } else if (videoExtensions.includes(ext)) {
+        const el = document.getElementById("video");
+        el.src = url;
+        el.style.height = "300px";
+      } else if (audioExtensions.includes(ext)) {
+        const el = document.getElementById("audio");
+        el.src = url;
+        el.style.height = "300px";
+      } else if (url.includes("embed")) {
+        const el = document.getElementById("iframe");
+        el.src = url;
+        el.style.height = "300px";
+      } else {
+        console.error("Unsupported media type:", url);
+      }
+
+      // Render categories
+      const categories = task.categories.split(", ");
+      categoryCount = categories.length;
+      const container = document.getElementById("category-options");
+      container.innerHTML = categories.map((cat, i) =>
+        `<div class="flex items-center gap-2 mb-3">
+          <input id="cat-${i}" type="checkbox" value="${cat}" class="h-4 w-4 rounded border-slate-300 accent-blue-600">
+          <label for="cat-${i}" class="select-none text-sm font-medium text-slate-700">${cat}</label>
+        </div>`
+      ).join("");
+
+      // Clear description
+      document.getElementById("label").value = "";
+      document.getElementById("submit-btn").disabled = false;
+    }
+
+    // --- Submit labels ---
+
+    async function submitLabels() {
+      const btn = document.getElementById("submit-btn");
+      btn.disabled = true;
+
+      const labellerName = getStoredName();
+      const label = [];
+
+      for (let i = 0; i < categoryCount; i++) {
+        const checkbox = document.getElementById(`cat-${i}`);
+        if (checkbox.checked) {
+          label.push(checkbox.value);
+        }
+      }
+
+      const otherLabel = document.getElementById("label").value.trim();
+      if (otherLabel) {
+        label.push(otherLabel);
+      }
+
+      const data = {
+        task_id: currentTaskId,
+        labeller_id: labellerName,
+        label: label,
+      };
+
+      try {
+        const response = await fetch(`${API_BASE}/updatelabel`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data),
+        });
+
+        if (response.ok) {
+          // Reload to get next task
+          loadTask(labellerName);
+        } else {
+          window.alert(`Submit failed: ${response.status}`);
+          btn.disabled = false;
+        }
+      } catch (error) {
+        console.error("Error submitting labels:", error);
+        window.alert("Submit failed. Please try again.");
+        btn.disabled = false;
+      }
+    }
+
+    // --- Init on page load ---
+
+    (function init() {
+      const storedName = getStoredName();
+      if (storedName) {
+        document.getElementById("display-name").textContent = storedName;
+        showLabellingScreen();
+        loadTask(storedName);
+      } else {
+        showNameScreen();
+      }
+    })();
+  </script>
 
 </html>

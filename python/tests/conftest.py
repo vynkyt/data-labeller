@@ -22,7 +22,10 @@ CREATE TABLE IF NOT EXISTS Task (
     label TEXT,
     categories TEXT,
     status TEXT,
-    qc_label TEXT
+    qc_label TEXT,
+    locked_at TEXT,
+    ai_qc_status TEXT DEFAULT NULL,
+    qc_round INTEGER DEFAULT 0
 );
 CREATE TABLE IF NOT EXISTS AI (
     job_id TEXT PRIMARY KEY,

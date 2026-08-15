@@ -1,3 +1,10 @@
+IMPORTANT: 
+uv run --env-file .env uvicorn main:app --reload --reload-dir .
+
+
+
+
+
 Admin:
 See: request from user
 Expected to: 

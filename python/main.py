@@ -2,7 +2,7 @@ import os
 import json
 import random
 import libsql
-from fastapi import FastAPI
+from fastapi import FastAPI, Query
 from pydantic import BaseModel
 import uuid
 import logging
@@ -17,11 +17,24 @@ logger = logging.getLogger('uvicorn.error')
 logger.setLevel(logging.INFO)
 
 QC_DICE_FIXED = random.randint(0, 9)
+STALE_LABELLING_SECONDS = 30 * 60  # 30 minutes
 
 def migrate():
     for stmt in (
+        "CREATE TABLE IF NOT EXISTS Job (job_id TEXT PRIMARY KEY, task_id TEXT)",
+        "CREATE TABLE IF NOT EXISTS Task ("
+        "task_id TEXT PRIMARY KEY, url TEXT, client_id TEXT, job_id TEXT, "
+        "labeller_id TEXT, label TEXT, categories TEXT, status TEXT, "
+        "qc_label TEXT, locked_at TEXT, ai_qc_status TEXT DEFAULT NULL, "
+        "qc_round INTEGER DEFAULT 0)",
+        "CREATE TABLE IF NOT EXISTS AI ("
+        "job_id TEXT PRIMARY KEY, total_tasks INTEGER, "
+        "ai_processed INTEGER DEFAULT 0, bad_labellers TEXT)",
         "ALTER TABLE AI ADD COLUMN ai_processed INTEGER DEFAULT 0",
         "ALTER TABLE AI ADD COLUMN bad_labellers TEXT",
+        "ALTER TABLE Task ADD COLUMN locked_at TEXT",
+        "ALTER TABLE Task ADD COLUMN ai_qc_status TEXT DEFAULT NULL",
+        "ALTER TABLE Task ADD COLUMN qc_round INTEGER DEFAULT 0",
     ):
         try:
             conn.execute(stmt)
@@ -30,7 +43,7 @@ def migrate():
     conn.commit()
 
 def gemini_check(task):
-    _, url, _, job_id, labeller_id, label, categories, _, _ = task
+    _, url, _, job_id, labeller_id, label, categories, _, _, _, _, _ = task
     logger.info(f"AI QC reviewing task in job {job_id} by labeller {labeller_id}: {label}")
     try:
         from google import genai
@@ -62,20 +75,23 @@ def gemini_check(task):
 
 def run_aiqc():
     logger.info("Running AI QC pass")
-    ai_rows = conn.execute("SELECT job_id, total_tasks, ai_processed, bad_labellers FROM AI").fetchall()
-    for job_id, total_tasks, ai_processed, bad_raw in ai_rows:
-        if ai_processed:
-            continue
+    ai_rows = conn.execute("SELECT job_id, total_tasks, bad_labellers FROM AI").fetchall()
+    for job_id, total_tasks, bad_raw in ai_rows:
         if total_tasks == 0:
-            conn.execute("UPDATE AI SET ai_processed = 1 WHERE job_id = ?", (job_id,))
-            conn.commit()
             continue
 
-        labelled = conn.execute("SELECT COUNT(*) FROM Task WHERE status = 'labelled' AND job_id = ?", (job_id,)).fetchall()
-        if not labelled or labelled[0][0] != total_tasks:
+        # Only consider labelled tasks that haven't been AI QC'd yet
+        unreviewed = conn.execute(
+            "SELECT COUNT(*) FROM Task WHERE status = 'labelled' AND ai_qc_status IS NULL AND job_id = ?",
+            (job_id,)
+        ).fetchall()
+        if not unreviewed or unreviewed[0][0] == 0:
             continue
 
-        tasks = conn.execute("SELECT * FROM Task WHERE job_id = ?", (job_id,)).fetchall()
+        tasks = conn.execute(
+            "SELECT * FROM Task WHERE status = 'labelled' AND ai_qc_status IS NULL AND job_id = ?",
+            (job_id,)
+        ).fetchall()
         bad_labellers = json.loads(bad_raw) if bad_raw else []
         reviewed = []
 
@@ -91,19 +107,33 @@ def run_aiqc():
                 if random.randint(0, 999999) % 10 == QC_DICE_FIXED:
                     reviewed.append(t)
 
+        # Flag bad labellers' unreviewed tasks
         for t in tasks:
-            if t[4] in bad_labellers and t[8] != "qc_open":
-                conn.execute("UPDATE Task SET status = 'qc_open' WHERE task_id = ?", (t[0],))
+            if t[4] in bad_labellers:
+                conn.execute(
+                    "UPDATE Task SET status = 'qc_open', ai_qc_status = 'fail' WHERE task_id = ? AND ai_qc_status IS NULL",
+                    (t[0],)
+                )
 
+        # Gemini review
         for t in reviewed:
             verdict = gemini_check(t)
             if verdict is False:
                 logger.info(f"AI QC flagged labeller {t[4]} in job {job_id}")
                 bad_labellers.append(t[4])
-                conn.execute("UPDATE Task SET status = 'qc_open' WHERE job_id = ? AND labeller_id = ?", (job_id, t[4]))
+                conn.execute(
+                    "UPDATE Task SET status = 'qc_open', ai_qc_status = 'fail' WHERE job_id = ? AND labeller_id = ? AND ai_qc_status IS NULL",
+                    (job_id, t[4])
+                )
+            elif verdict is True:
+                conn.execute(
+                    "UPDATE Task SET ai_qc_status = 'pass' WHERE task_id = ?",
+                    (t[0],)
+                )
+            # verdict is None (API error) — leave ai_qc_status as NULL, retry next pass
 
         conn.execute(
-            "UPDATE AI SET ai_processed = 1, bad_labellers = ? WHERE job_id = ?",
+            "UPDATE AI SET bad_labellers = ? WHERE job_id = ?",
             (json.dumps(list(set(bad_labellers))), job_id),
         )
         conn.commit()
@@ -147,10 +177,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-conn = libsql.connect(
-        database=os.environ["TURSO_DATABASE_URL"],
-        auth_token=os.environ["TURSO_AUTH_TOKEN"],
-    )
+TURSO_URL = os.environ.get("TURSO_DATABASE_URL")
+TURSO_TOKEN = os.environ.get("TURSO_AUTH_TOKEN")
+
+if TURSO_URL and TURSO_TOKEN:
+    conn = libsql.connect(database=TURSO_URL, auth_token=TURSO_TOKEN)
+else:
+    logger.info("No Turso credentials found — using local SQLite (data-labeller.db)")
+    conn = libsql.connect("data-labeller.db")
 
 @app.get("/")
 def read_root():
@@ -204,18 +238,60 @@ def hit_job(item: Job):
     conn.execute("UPDATE Job SET task_id = ? WHERE job_id = ?", (str(final_task_id_list), id,))
     conn.commit()
 
+def reset_stale_labelling_tasks():
+    """Reset tasks stuck in 'labelling' for longer than the staleness threshold back to 'open'.
+
+    Uses the locked_at timestamp column to determine staleness.
+    """
+    try:
+        cutoff_epoch = time.time() - STALE_LABELLING_SECONDS
+        # Convert epoch cutoff to ISO format for comparison with locked_at text
+        cutoff_iso = time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime(cutoff_epoch))
+        conn.execute(
+            "UPDATE Task SET status = 'open', labeller_id = NULL, locked_at = NULL "
+            "WHERE status = 'labelling' AND locked_at IS NOT NULL AND locked_at < ?",
+            (cutoff_iso,),
+        )
+        conn.commit()
+    except Exception as e:
+        logger.warning(f"Staleness reset failed: {e}")
+
+
 @app.get("/task")
-def get_task():
-    task_obj: list[Task] = []  
-    for item in conn.execute("SELECT * from Task WHERE status = 'open' LIMIT 1").fetchall():
-        task_obj.append(Task(item[0], item[1], item[2], item[3], item[4], item[5],item[6], item[7], item[8]))
+def get_task(labeller_id: str | None = None):
+    # Always reset stale tasks first
+    reset_stale_labelling_tasks()
+
+    # If a labeller_id is provided, check for an in-progress task first
+    if labeller_id:
+        rows = conn.execute(
+            "SELECT * FROM Task WHERE status = 'labelling' AND labeller_id = ? LIMIT 1",
+            (labeller_id,),
+        ).fetchall()
+        if rows:
+            task_obj = Task(*rows[0])
+            logger.info(f"Resuming task {task_obj.task_id} for labeller {labeller_id}")
+            return {"task": [task_obj]}
+
+    # No in-progress task (or no labeller_id) — fetch next open task
+    task_obj: list[Task] = []
+    for item in conn.execute("SELECT * FROM Task WHERE status = 'open' LIMIT 1").fetchall():
+        task_obj.append(Task(*item))
 
     if not task_obj:
         return {"message": "there are no open tasks"}
 
-    conn.execute("UPDATE Task SET status = 'labelling' WHERE task_id = ?", [str(task_obj[0].task_id)])
+    update_sql = "UPDATE Task SET status = 'labelling', locked_at = ?"
+    update_params: list = [time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime()), task_obj[0].task_id]
+
+    if labeller_id:
+        update_sql += ", labeller_id = ?"
+        update_params.append(labeller_id)
+
+    update_sql += " WHERE task_id = ?"
+    conn.execute(update_sql, update_params)
     conn.commit()
-    logger.info(str(task_obj[0].task_id))
+    logger.info(f"Fetched task {task_obj[0].task_id} for labeller {labeller_id}")
     return {"task": task_obj}
 
 class UpdateLabel(BaseModel):
@@ -225,21 +301,24 @@ class UpdateLabel(BaseModel):
 
 @app.post("/updatelabel")
 def upd_label(task: UpdateLabel):
-    conn.execute("UPDATE Task SET status = 'labelled', label = ?, labeller_id = ? WHERE task_id = ?", (str(task.label), task.labeller_id, task.task_id))
+    conn.execute("UPDATE Task SET status = 'labelled', label = ?, labeller_id = ?, locked_at = NULL WHERE task_id = ?", (str(task.label), task.labeller_id, task.task_id))
     conn.commit()
     return {"status": "success"}
 
 class Task:
-    def __init__(self, task_id, url, client_id, job_id, labeller_id, label, categories, status, qc_label):
+    def __init__(self, task_id, url, client_id, job_id, labeller_id, label, categories, status, qc_label, locked_at=None, ai_qc_status=None, qc_round=0):
         self.task_id = task_id
         self.url = url
         self.client_id = client_id
         self.job_id = job_id
         self.labeller_id = labeller_id
-        self.label= label
-        self.categories= categories
-        self.status= status
+        self.label = label
+        self.categories = categories
+        self.status = status
         self.qc_label = qc_label
+        self.locked_at = locked_at
+        self.ai_qc_status = ai_qc_status
+        self.qc_round = qc_round
 
 @app.get("/countlabelled")
 def countlabelled():
@@ -254,3 +333,30 @@ def countlabelled():
             logger.info(labelled_tasks)
             return labelled_tasks
     conn.commit()
+
+
+class HumanQC(BaseModel):
+    task_id: str
+    action: str  # "approve" or "relabel"
+
+@app.post("/humanqc")
+def human_qc(request: HumanQC):
+    if request.action == "approve":
+        conn.execute(
+            "UPDATE Task SET status = 'labelled', ai_qc_status = 'pass' WHERE task_id = ?",
+            (request.task_id,),
+        )
+    elif request.action == "relabel":
+        conn.execute(
+            "UPDATE Task SET status = 'open', labeller_id = NULL, locked_at = NULL, "
+            "ai_qc_status = NULL, qc_round = qc_round + 1 WHERE task_id = ?",
+            (request.task_id,),
+        )
+    conn.commit()
+    return {"status": "success"}
+
+
+@app.get("/qc_tasks")
+def get_qc_tasks():
+    tasks = conn.execute("SELECT * FROM Task WHERE status = 'qc_open'").fetchall()
+    return {"tasks": [Task(*t) for t in tasks]}

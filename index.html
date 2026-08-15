@@ -1,0 +1,97 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Data Labeller</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+  </head>
+
+  <body class="min-h-screen bg-slate-100 px-4 py-8">
+
+    <div class="mx-auto max-w-3xl space-y-8">
+
+      <!-- Header -->
+      <div class="space-y-2">
+        <h1 class="text-2xl font-bold text-slate-900">Data Labeller</h1>
+        <p class="text-slate-500">AI-assisted media annotation pipeline for images, videos, and audio datasets</p>
+      </div>
+
+      <!-- What this is -->
+      <div class="rounded-lg bg-white p-6 shadow-sm space-y-3">
+        <h2 class="text-lg font-semibold text-slate-900">What this is</h2>
+        <p class="text-sm text-slate-600 leading-relaxed">
+          A three-stage pipeline for annotating media datasets with category labels and free-text descriptions.
+          Tasks flow through admin creation, labeller annotation, automated AI quality control (Gemini), and human QC review.
+          Built with Python/FastAPI, Turso (libSQL), and vanilla HTML/Tailwind CSS.
+        </p>
+      </div>
+
+      <!-- Pipeline -->
+      <div class="rounded-lg bg-white p-6 shadow-sm space-y-4">
+        <h2 class="text-lg font-semibold text-slate-900">Pipeline</h2>
+        <div class="flex items-center justify-between gap-2">
+          <div class="flex-1 rounded-md border border-slate-200 bg-slate-50 p-3 text-center">
+            <p class="text-xs text-slate-400 mb-1">01</p>
+            <p class="text-sm font-medium text-slate-700">Admin</p>
+            <p class="text-xs text-slate-400">Create jobs</p>
+          </div>
+          <span class="text-slate-300 text-lg">&rarr;</span>
+          <div class="flex-1 rounded-md border border-slate-200 bg-slate-50 p-3 text-center">
+            <p class="text-xs text-slate-400 mb-1">02</p>
+            <p class="text-sm font-medium text-slate-700">Labeller</p>
+            <p class="text-xs text-slate-400">Annotate</p>
+          </div>
+          <span class="text-slate-300 text-lg">&rarr;</span>
+          <div class="flex-1 rounded-md border border-slate-200 bg-slate-50 p-3 text-center">
+            <p class="text-xs text-slate-400 mb-1">03</p>
+            <p class="text-sm font-medium text-slate-700">AI QC</p>
+            <p class="text-xs text-slate-400">Gemini review</p>
+          </div>
+          <span class="text-slate-300 text-lg">&rarr;</span>
+          <div class="flex-1 rounded-md border border-slate-200 bg-slate-50 p-3 text-center">
+            <p class="text-xs text-slate-400 mb-1">04</p>
+            <p class="text-sm font-medium text-slate-700">Human QC</p>
+            <p class="text-xs text-slate-400">Approve / relabel</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Roles -->
+      <div class="rounded-lg bg-white p-6 shadow-sm space-y-4">
+        <h2 class="text-lg font-semibold text-slate-900">Roles</h2>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+
+          <!-- Admin -->
+          <a href="admin.html" target="_blank" block rounded-md border border-slate-200 p-4 hover:border-blue-300 hover:shadow-sm transition-all space-y-2">
+            <h3 class="text-sm font-semibold text-slate-900">Admin</h3>
+            <p class="text-xs text-slate-500 leading-relaxed">Create jobs, upload media URLs, and define category lists for labellers.</p>
+            <p class="text-xs font-medium text-blue-600">Go &rarr;</p>
+          </a>
+
+          <!-- Labeller -->
+          <a href="labeller.html" target="_blank" class="block rounded-md border border-slate-200 p-4 hover:border-blue-300 hover:shadow-sm transition-all space-y-2">
+            <h3 class="text-sm font-semibold text-slate-900">Labeller</h3>
+            <p class="text-xs text-slate-500 leading-relaxed">Annotate media tasks with category labels and free-text descriptions.</p>
+            <p class="text-xs font-medium text-blue-600">Go &rarr;</p>
+          </a>
+
+          <!-- QC Reviewer -->
+          <a href="qc.html" target="_blank" class="block rounded-md border border-slate-200 p-4 hover:border-blue-300 hover:shadow-sm transition-all space-y-2">
+            <h3 class="text-sm font-semibold text-slate-900">QC Reviewer</h3>
+            <p class="text-xs text-slate-500 leading-relaxed">Review AI-flagged labels, approve correct ones or send back for relabelling.</p>
+            <p class="text-xs font-medium text-blue-600">Go &rarr;</p>
+          </a>
+
+        </div>
+      </div>
+
+      <!-- Tech stack -->
+      <div class="text-center text-xs text-slate-400">
+        Python &middot; FastAPI &middot; Turso &middot; Gemini &middot; Tailwind CSS
+      </div>
+
+    </div>
+
+  </body>
+</html>

@@ -7,24 +7,30 @@
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
   </head>
 
-  <body class="flex flex-col m-8">
-    <h3>User request:</h3>
-    <h3>URLs</h3>
-    <ol id="url-list"></ol>
-    <div class="flex flex-col">
-        <textarea id="url-in" class="border"></textarea>
-        <button class="bg-white rounded rounded-full my-2 w-md border hover:cursor-pointer hover:bg-violet-600" id="url-button" onclick="urlbutton()">Submit URLs</button>
-    </div>
-        <h3>Categories</h3>
-        <ol id="category-list"></ol>
-        <div class="flex flex-col">
-            <textarea id="category-in" class="border"></textarea>
-            <button class="bg-white rounded rounded-full my-2 w-md border hover:cursor-pointer hover:bg-violet-600" id="category-button" onclick="categorybutton()">Submit categories</button>
+  <body class="min-h-screen bg-slate-100 px-4 py-8">
+    <div class="mx-auto w-full max-w-2xl space-y-6 rounded-lg bg-white p-6 shadow-sm">
+      <div>
+        <h3 class="mb-3 text-lg font-semibold text-slate-900">User request:</h3>
+      </div>
+      <div>
+        <h3 class="mb-2 font-medium text-slate-700">URLs</h3>
+        <ol id="url-list" class="mb-3 list-disc pl-6 text-slate-600"></ol>
+        <div class="flex flex-col gap-2">
+          <textarea id="url-in" class="rounded-md border border-slate-300 p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+          <button class="w-full rounded-full bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 hover:cursor-pointer" id="url-button" onclick="urlbutton()">Submit URLs</button>
         </div>
-    
-    <button class="bg-white rounded rounded-full my-2 w-md border hover:cursor-pointer hover:bg-violet-600 disabled:opacity-50 disabled:cursor-not-allowed" id="all-button" onclick="submitall()">Submit URLs and Categories</button>
-    
-        
+      </div>
+      <div>
+        <h3 class="mb-2 font-medium text-slate-700">Categories</h3>
+        <ol id="category-list" class="mb-3 list-disc pl-6 text-slate-600"></ol>
+        <div class="flex flex-col gap-2">
+          <textarea id="category-in" class="rounded-md border border-slate-300 p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+          <button class="w-full rounded-full bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 hover:cursor-pointer" id="category-button" onclick="categorybutton()">Submit categories</button>
+        </div>
+      </div>
+
+      <button class="w-full rounded-full bg-slate-900 px-4 py-2 text-white hover:bg-slate-800 hover:cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed" id="all-button" onclick="submitall()">Submit URLs and Categories</button>
+    </div>
 </body>
 
 <script>

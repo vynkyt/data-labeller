@@ -1,4 +1,6 @@
 import os
+import json
+import random
 import libsql
 from fastapi import FastAPI
 from pydantic import BaseModel
@@ -14,11 +16,107 @@ import time
 logger = logging.getLogger('uvicorn.error')
 logger.setLevel(logging.INFO)
 
+QC_DICE_FIXED = random.randint(0, 9)
+
+def migrate():
+    for stmt in (
+        "ALTER TABLE AI ADD COLUMN ai_processed INTEGER DEFAULT 0",
+        "ALTER TABLE AI ADD COLUMN bad_labellers TEXT",
+    ):
+        try:
+            conn.execute(stmt)
+        except Exception:
+            pass
+    conn.commit()
+
+def gemini_check(task):
+    _, url, _, job_id, labeller_id, label, categories, _, _ = task
+    logger.info(f"AI QC reviewing task in job {job_id} by labeller {labeller_id}: {label}")
+    try:
+        from google import genai
+    except ImportError:
+        logger.error("google-genai not installed; skipping AI review")
+        return None
+    api_key = os.environ.get("GEMINI_API_KEY")
+    if not api_key:
+        logger.error("GEMINI_API_KEY not set; skipping AI review")
+        return None
+    client = genai.Client(api_key=api_key)
+    model = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
+    prompt = (
+        f"You are an AI quality checker for a data labelling pipeline.\n"
+        f"Media url: {url}\n"
+        f"Allowed categories: {categories}\n"
+        f"Labeller's chosen label: {label}\n"
+        "Decide whether the chosen label is a correct/plausible category for the media.\n"
+        'Reply with exactly "PASS" or "FAIL".'
+    )
+    try:
+        resp = client.models.generate_content(model=model, contents=prompt)
+        text = resp.text.strip().upper()
+        logger.info(f"AI QC verdict: {text}")
+        return text.startswith("PASS")
+    except Exception as e:
+        logger.error(f"Gemini call failed: {e}")
+        return None
+
+def run_aiqc():
+    logger.info("Running AI QC pass")
+    ai_rows = conn.execute("SELECT job_id, total_tasks, ai_processed, bad_labellers FROM AI").fetchall()
+    for job_id, total_tasks, ai_processed, bad_raw in ai_rows:
+        if ai_processed:
+            continue
+        if total_tasks == 0:
+            conn.execute("UPDATE AI SET ai_processed = 1 WHERE job_id = ?", (job_id,))
+            conn.commit()
+            continue
+
+        labelled = conn.execute("SELECT COUNT(*) FROM Task WHERE status = 'labelled' AND job_id = ?", (job_id,)).fetchall()
+        if not labelled or labelled[0][0] != total_tasks:
+            continue
+
+        tasks = conn.execute("SELECT * FROM Task WHERE job_id = ?", (job_id,)).fetchall()
+        bad_labellers = json.loads(bad_raw) if bad_raw else []
+        reviewed = []
+
+        if total_tasks < 10:
+            by_labeller: dict = {}
+            for t in tasks:
+                by_labeller.setdefault(t[4], []).append(t)
+            for lab, ts in by_labeller.items():
+                if lab not in bad_labellers and ts:
+                    reviewed.append(random.choice(ts))
+        else:
+            for t in tasks:
+                if random.randint(0, 999999) % 10 == QC_DICE_FIXED:
+                    reviewed.append(t)
+
+        for t in tasks:
+            if t[4] in bad_labellers and t[8] != "qc_open":
+                conn.execute("UPDATE Task SET status = 'qc_open' WHERE task_id = ?", (t[0],))
+
+        for t in reviewed:
+            verdict = gemini_check(t)
+            if verdict is False:
+                logger.info(f"AI QC flagged labeller {t[4]} in job {job_id}")
+                bad_labellers.append(t[4])
+                conn.execute("UPDATE Task SET status = 'qc_open' WHERE job_id = ? AND labeller_id = ?", (job_id, t[4]))
+
+        conn.execute(
+            "UPDATE AI SET ai_processed = 1, bad_labellers = ? WHERE job_id = ?",
+            (json.dumps(list(set(bad_labellers))), job_id),
+        )
+        conn.commit()
+
 def task():
-    logger.info("hi")
+    logger.info("scheduler tick")
+    run_aiqc()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Apply schema migrations
+    migrate()
+
     # Initialize the scheduler
     scheduler = AsyncIOScheduler()
     

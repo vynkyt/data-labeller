@@ -26,7 +26,9 @@ CREATE TABLE IF NOT EXISTS Task (
 );
 CREATE TABLE IF NOT EXISTS AI (
     job_id TEXT PRIMARY KEY,
-    total_tasks INTEGER
+    total_tasks INTEGER,
+    ai_processed INTEGER DEFAULT 0,
+    bad_labellers TEXT
 );
 """
 

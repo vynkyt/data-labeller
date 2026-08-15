@@ -249,3 +249,183 @@ def test_countlabelled_zero_tasks_labelled(client):
     resp = tc.get("/countlabelled")
 
     assert resp.json() is None
+
+
+# === run_aiqc (AI QC pass) ===
+
+def task_row(tid, lab, status="labelled"):
+    return (tid, "http://img", "c1", "j1", lab, "['cat1']", "cat1", status, None)
+
+
+@pytest.fixture
+def qc(monkeypatch, mock_db):
+    from unittest.mock import patch
+
+    monkeypatch.setattr("main.gemini_check", lambda task: None)
+    with patch("main.conn", mock_db):
+        import main as m
+
+        yield m, mock_db
+
+
+def test_qc_incomplete_job_skipped(qc):
+    m, db = qc
+    db.results = [
+        [("j1", 2, 0, None)],
+        [(1,)],
+    ]
+
+    m.run_aiqc()
+
+    assert not any("UPDATE AI" in sql for sql, _ in db.calls)
+    assert db.commits == 0
+
+
+def test_qc_zero_tasks_processed(qc):
+    m, db = qc
+    db.results = [
+        [("j1", 0, 0, None)],
+        [],
+    ]
+
+    m.run_aiqc()
+
+    sql, params = db.calls[1]
+    assert "ai_processed = 1" in sql
+    assert db.commits == 1
+
+
+def test_qc_no_jobs_noop(qc):
+    m, db = qc
+    db.results = [[]]
+
+    m.run_aiqc()
+
+    assert db.calls == [("SELECT job_id, total_tasks, ai_processed, bad_labellers FROM AI", None)]
+    assert db.commits == 0
+
+
+def test_qc_pass_keeps_labelled(qc):
+    m, db = qc
+    m.gemini_check = lambda task: True
+    db.results = [
+        [("j1", 1, 0, None)],
+        [(1,)],
+        [task_row("t1", "lab1")],
+        [],
+    ]
+
+    m.run_aiqc()
+
+    assert not any("qc_open" in sql for sql, _ in db.calls)
+    sql, params = db.calls[3]
+    assert "ai_processed = 1" in sql
+    assert params[1] == "j1"
+
+
+def test_qc_fail_flags_labeller_and_qc_open_all(qc):
+    m, db = qc
+    m.gemini_check = lambda task: False
+    db.results = [
+        [("j1", 1, 0, None)],
+        [(1,)],
+        [task_row("t1", "lab1")],
+        [],
+        [],
+    ]
+
+    m.run_aiqc()
+
+    qc_updates = [p for sql, p in db.calls if "qc_open" in sql]
+    assert qc_updates == [("j1", "lab1")], qc_updates
+    ai_update = [p for sql, p in db.calls if "UPDATE AI" in sql and "bad_labellers" in sql][0]
+    assert ai_update == ('["lab1"]', "j1")
+
+
+def test_qc_bad_labeller_skips_gemini_straight_to_qc_open(qc):
+    m, db = qc
+    reviewed = []
+    m.gemini_check = lambda task: reviewed.append(task) or True
+    db.results = [
+        [("j1", 1, 0, '["lab1"]')],
+        [(1,)],
+        [task_row("t1", "lab1")],
+        [],
+        [],
+    ]
+
+    m.run_aiqc()
+
+    qc_updates = [p for sql, p in db.calls if "qc_open" in sql]
+    assert qc_updates == [("t1",)]
+    assert reviewed == []
+
+
+def test_qc_small_job_one_random_task_per_labeller(qc):
+    m, db = qc
+    reviewed = []
+    m.gemini_check = lambda task: reviewed.append(task) or True
+    db.results = [
+        [("j1", 2, 0, None)],
+        [(2,)],
+        [task_row("t1", "lab1"), task_row("t2", "lab1")],
+        [],
+    ]
+
+    m.run_aiqc()
+
+    assert len(reviewed) == 1
+    assert reviewed[0][0] in ("t1", "t2")
+
+
+def test_qc_large_job_dice_reviews_selected(qc, monkeypatch):
+    m, db = qc
+    m.QC_DICE_FIXED = 5
+    monkeypatch.setattr("main.random.randint", lambda a, b: 5)
+    m.gemini_check = lambda task: True
+    rows = [task_row(f"t{i}", "lab1") for i in range(10)]
+    db.results = [
+        [("j1", 10, 0, None)],
+        [(10,)],
+        rows,
+        [],
+    ]
+
+    m.run_aiqc()
+
+    assert any("ai_processed = 1" in sql for sql, _ in db.calls)
+
+
+def test_qc_large_job_dice_none_selected(qc, monkeypatch):
+    m, db = qc
+    m.QC_DICE_FIXED = 5
+    monkeypatch.setattr("main.random.randint", lambda a, b: 4)
+    m.gemini_check = lambda task: False
+    rows = [task_row(f"t{i}", "lab1") for i in range(10)]
+    db.results = [
+        [("j1", 10, 0, None)],
+        [(10,)],
+        rows,
+        [],
+    ]
+
+    m.run_aiqc()
+
+    assert not any("qc_open" in sql for sql, _ in db.calls)
+    assert any("ai_processed = 1" in sql for sql, _ in db.calls)
+
+
+def test_qc_gemini_skipped_keeps_labelled(qc):
+    m, db = qc
+    m.gemini_check = lambda task: None
+    db.results = [
+        [("j1", 1, 0, None)],
+        [(1,)],
+        [task_row("t1", "lab1")],
+        [],
+    ]
+
+    m.run_aiqc()
+
+    assert not any("qc_open" in sql for sql, _ in db.calls)
+    assert any("ai_processed = 1" in sql for sql, _ in db.calls)

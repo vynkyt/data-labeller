@@ -112,7 +112,10 @@ def get_task():
     for item in conn.execute("SELECT * from Task WHERE status = 'open' LIMIT 1").fetchall():
         task_obj.append(Task(item[0], item[1], item[2], item[3], item[4], item[5],item[6], item[7], item[8]))
 
-    lock_task = conn.execute("UPDATE Task SET status = 'labelling' WHERE task_id = ?", [str(task_obj[0].task_id)])
+    if not task_obj:
+        return {"message": "there are no open tasks"}
+
+    conn.execute("UPDATE Task SET status = 'labelling' WHERE task_id = ?", [str(task_obj[0].task_id)])
     conn.commit()
     logger.info(str(task_obj[0].task_id))
     return {"task": task_obj}

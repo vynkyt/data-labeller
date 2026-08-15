@@ -2,6 +2,10 @@
 
 Welcome to *Data Labeller*!
 
+<div style="text-align:center;">
+<img width="1779" height="1158" alt="image" src="https://github.com/user-attachments/assets/912deab5-3617-4dbc-8460-8faf622780d9" />
+</div>
+<br>
 An AI-assisted media annotation pipeline for images, videos, and audio datasets. Built with Python/FastAPI, Turso (libSQL), Gemini, and vanilla HTML/Tailwind CSS.
 
 ---
@@ -26,17 +30,10 @@ Data Labeller is a four-stage pipeline for annotating media datasets:
 
 ## Miscellaneous Challenges
 
-   
-   for human qc, idk if i want qc to relabel if the labels dont match, or send the tasks back to labellers. im leaning more towards sending taks back to labellers, but then i dont know what to set the status to. i contemplated having qc-checking and qc-checked, but then that would mean the task ending point is no longer "labelled", and there would be no sure way to determine which tasks are truly ready. 
-   
-   I decided to keep "labelled" as the ending point and to add a new column "qc_round", which counts the number of times a task has gone through human QC. 
-
-
-   if its set back to "open", it goes through the pipeline again but theres a guardrail on ai reviewing the same jobs, meaning these tasks may never get reviewed. 
-   
-   So I decided on per-task AI QC checking by setting three statuses for AI QC, *null*/*pass*/*fail*, and tasks that go through the pipeline again after human QC has AI QC reset to *null*.
-
+1. For human QC, I didn't know if I wanted QC to relabel if the labels don't match, or send the tasks back to labellers. I was leaning more towards sending tasks back to labellers, but then I didn't know what to set the task status to in this case. I contemplated having *qc-checking* and *qc-checked*, but then that would mean the task terminal point would no longer be *labelled*, and there would be no sure way to determine which tasks are truly ready. In the end, I decided to keep *labelled* as the terminal point and to add a new column, *qc_round*, which counts the number of times a task has gone through human QC.
+2. If task status was set back to *open*, it would go through the pipeline again but since there was a guardrail on AI reviewing the same jobs, these tasks may never get reviewed. So I decided on per-task AI QC checking by setting three statuses for AI QC, *null*/*pass*/*fail*, and tasks that go through the pipeline again after human QC has AI QC reset to *null*. AI QC would check tasks with AI QC status as *null* in this case.
 ---
+
 # Tech Stack
 
 - Python / FastAPI
@@ -49,11 +46,6 @@ Data Labeller is a four-stage pipeline for annotating media datasets:
 
 - Visual Studio Code
 - uv (Python package manager)
-
-## Hosting
-
-- Local development (`uvicorn --reload`)
-
 ---
 
 
@@ -84,15 +76,15 @@ If you want to use Turso for the database and/or Gemini for AI quality control:
 
 1. Copy the example env file and fill in your credentials:
 
-   ```bash
-   cp ../.env.example .env
-   ```
+ ```bash
+ cp ../.env.example .env
+ ```
 
 2. Run with the env file loaded:
 
-   ```bash
-   uv run --env-file .env uvicorn main:app --reload --reload-dir .
-   ``` 
+ ```bash
+ uv run --env-file .env uvicorn main:app --reload --reload-dir .
+ ``` 
 
 ## Load Demo Data
 

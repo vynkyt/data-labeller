@@ -12,7 +12,10 @@
 
       <div class="flex items-center justify-between">
         <h2 class="text-lg font-semibold text-slate-900">Quality Control</h2>
-        <button onclick="loadTasks()" class="text-sm text-slate-500 hover:text-slate-700 hover:underline hover:cursor-pointer">Refresh</button>
+        <div class="flex gap-3">
+          <button onclick="runQc()" class="text-sm text-blue-600 hover:text-blue-800 hover:underline hover:cursor-pointer">Run AI QC</button>
+          <button onclick="loadTasks()" class="text-sm text-slate-500 hover:text-slate-700 hover:underline hover:cursor-pointer">Refresh</button>
+        </div>
       </div>
 
       <!-- Loading -->
@@ -113,6 +116,23 @@
         showNextTask();
       } catch (error) {
         console.error("Error loading QC tasks:", error);
+        showEl("loading", false);
+        showEl("no-tasks", true);
+      }
+    }
+
+    // --- Run AI QC then load tasks ---
+
+    async function runQc() {
+      showEl("loading", true);
+      showEl("no-tasks", false);
+      showEl("task-area", false);
+
+      try {
+        await fetch(`${API_BASE}/run-qc`, { method: "POST" });
+        await loadTasks();
+      } catch (error) {
+        console.error("Error running QC:", error);
         showEl("loading", false);
         showEl("no-tasks", true);
       }

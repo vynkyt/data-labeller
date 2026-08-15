@@ -618,3 +618,17 @@ def test_qc_tasks_empty_when_none(client):
 
     assert resp.status_code == 200
     assert resp.json() == {"tasks": []}
+
+
+# === POST /run-qc ===
+
+def test_run_qc_triggers_and_returns_done(client):
+    tc, db = client
+    # run_aiqc queries: SELECT AI rows, then COUNT unreviewed
+    db.results.append([])  # SELECT AI rows (empty, no jobs)
+    db.results.append([])
+
+    resp = tc.post("/run-qc")
+
+    assert resp.status_code == 200
+    assert resp.json() == {"status": "done"}

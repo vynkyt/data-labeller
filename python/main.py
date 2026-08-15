@@ -38,8 +38,12 @@ def migrate():
     ):
         try:
             conn.execute(stmt)
-        except Exception:
-            pass
+        except Exception as e:
+            msg = str(e).lower()
+            if "duplicate column" in msg or "already exists" in msg:
+                pass  # column already present, safe to ignore
+            else:
+                logger.warning(f"Migration failed for: {stmt[:60]}... — {e}")
     conn.commit()
 
 def gemini_check(task):
@@ -150,8 +154,8 @@ async def lifespan(app: FastAPI):
     # Initialize the scheduler
     scheduler = AsyncIOScheduler()
     
-    # Add an interval job (runs every 5 seconds)
-    scheduler.add_job(task, "interval", seconds=600)
+    # Add an interval job (runs every 30 seconds)
+    scheduler.add_job(task, "interval", seconds=30)
     
     # Start the scheduler
     scheduler.start()
@@ -360,3 +364,9 @@ def human_qc(request: HumanQC):
 def get_qc_tasks():
     tasks = conn.execute("SELECT * FROM Task WHERE status = 'qc_open'").fetchall()
     return {"tasks": [Task(*t) for t in tasks]}
+
+
+@app.post("/run-qc")
+def trigger_qc():
+    run_aiqc()
+    return {"status": "done"}

@@ -5,44 +5,38 @@ Welcome to *Data Labeller*!
 An AI-assisted media annotation pipeline for images, videos, and audio datasets. Built with Python/FastAPI, Turso (libSQL), Gemini, and vanilla HTML/Tailwind CSS.
 
 ---
+
 # How It Works
 
 Data Labeller is a four-stage pipeline for annotating media datasets:
 
-1. **Admin** — Create jobs by uploading media URLs and defining category lists
-2. **Labeller** — Annotate media tasks with category labels and free-text descriptions
-3. **AI QC** — Automated quality control using Gemini to sample and verify labels
-4. **Human QC** — Review flagged labels, approve correct ones or send back for relabelling
-
-Tasks flow through each stage automatically. If a labeller's labels are flagged by AI QC, a human reviewer decides whether to approve or send the task back for relabelling — with a round counter tracking how many times a task has bounced back.
-
+1. **Admin**: Create jobs by uploading media URLs and defining category lists
+2. **Labeller**: Annotate media tasks with category labels and free-text descriptions
+3. **AI QC**: Automated quality control using Gemini to sample and verify labels. Gemini reviews a sample of labels per job. Small jobs (<10 tasks): one random task per labeller. Large jobs: ~10% dice-rolled. Failing a single task flags the entire labeller's work in that job.
+4. **Human QC**: Review flagged labels, approve correct ones or send back for relabelling by setting task status back to "open".
 ---
+
 # Development Process
+
+  
 
 ## Foundation
 
-Started with a single `labeller.html` page and a FastAPI backend. The original goal was simple: let someone enter their name, get a media task, label it, and submit. From there it snowballed into a full pipeline with admin job creation, automated AI quality control, and a human QC review stage.
-
-## Architecture
-
-The whole thing is intentionally over-engineered for what it does:
-
-- **Frontend**: Four standalone HTML files (`index.html`, `admin.html`, `labeller.html`, `qc.html`) — no build system, no framework, no bundler. Just Tailwind via CDN and vanilla JS.
-- **Backend**: Single Python file (`main.py`) with FastAPI. One file does everything — endpoints, scheduler, AI QC, database migrations.
-- **Database**: Turso (libSQL) — serverless SQLite. Handles tasks, jobs, labels, QC status, and per-task AI QC tracking.
-- **AI QC**: Gemini reviews a sample of labels per job. Small jobs (<10 tasks): one random task per labeller. Large jobs: ~10% dice-rolled. Failing a single task flags the entire labeller's work in that job.
-
-## Key Design Decisions
-
-1. **Per-task AI QC tracking**: Each task has its own `ai_qc_status` (pass/fail/null) so relabelled tasks get re-reviewed without redundantly checking ones that already passed.
-2. **Staleness reset**: Tasks stuck in "labelling" for >30 minutes get reset to "open" so they don't disappear if a labeller closes their browser.
-3. **Session persistence**: Labeller name stored in localStorage so refreshing doesn't lose your in-progress task.
-4. **QC round tracking**: `qc_round` counter on each task tracks how many times it's been sent back for relabelling.
+  
 
 ## Miscellaneous Challenges
 
----
+   
+   for human qc, idk if i want qc to relabel if the labels dont match, or send the tasks back to labellers. im leaning more towards sending taks back to labellers, but then i dont know what to set the status to. i contemplated having qc-checking and qc-checked, but then that would mean the task ending point is no longer "labelled", and there would be no sure way to determine which tasks are truly ready. 
+   
+   I decided to keep "labelled" as the ending point and to add a new column "qc_round", which counts the number of times a task has gone through human QC. 
 
+
+   if its set back to "open", it goes through the pipeline again but theres a guardrail on ai reviewing the same jobs, meaning these tasks may never get reviewed. 
+   
+   So I decided on per-task AI QC checking by setting three statuses for AI QC, *null*/*pass*/*fail*, and tasks that go through the pipeline again after human QC has AI QC reset to *null*.
+
+---
 # Tech Stack
 
 - Python / FastAPI
@@ -59,22 +53,72 @@ The whole thing is intentionally over-engineered for what it does:
 ## Hosting
 
 - Local development (`uvicorn --reload`)
+
 ---
+
 
 # Key Features
 
 - Four-role pipeline: Admin, Labeller, AI QC, Human QC
 - Automated quality control with Gemini sampling and per-task tracking
 - Human QC review with approve/relabel actions and round-trip tracking
-- Session persistence — labellers resume where they left off on refresh
-- Stale task recovery — labelling tasks auto-reset after 30 minutes
-- Three standalone HTML pages + landing page, no build step required
+- Session persistence: labellers resume where they left off on refresh
+- Stale task recovery: labelling tasks auto-reset after 30 minutes
+
 ---
 
 # Guide to Data Labeller
 
-Open `index.html` in a browser to access the landing page, then pick your role:
+## Quick Start (no accounts needed)
 
-- **Admin** (`admin.html`) — Enter media URLs and category lists, then submit to create a labelling job
-- **Labeller** (`labeller.html`) — Enter your name, get assigned a task, label it with categories and descriptions, submit. Refreshing won't lose your work.
-- **QC Reviewer** (`qc.html`) — See tasks flagged by AI QC, review the media and submitted labels, approve or send back to the labeller queue
+```bash
+cd python
+uv sync
+uv run uvicorn main:app --reload --reload-dir .
+```
+
+This runs the app with a local SQLite database (`data-labeller.db`) with no configuration needed!
+## With Turso / Gemini (optional)
+
+If you want to use Turso for the database and/or Gemini for AI quality control:
+
+1. Copy the example env file and fill in your credentials:
+
+   ```bash
+   cp ../.env.example .env
+   ```
+
+2. Run with the env file loaded:
+
+   ```bash
+   uv run --env-file .env uvicorn main:app --reload --reload-dir .
+   ``` 
+
+## Load Demo Data
+
+In a separate terminal:
+
+```bash
+uv run python seed.py
+```
+
+This creates a sample job with 6 public images and 4 categories. Tasks appear immediately in the labeller page.
+## Open the UI
+
+Open `index.html` (in the project root) in a browser to access the landing page, then pick a role:
+- **Admin**: creates jobs with media URLs and categories
+- **Labeller**: annotates media tasks
+- **QC Reviewer**: reviews AI-flagged labels
+## Environment Variables
+
+Copy `.env.example` to `.env` and fill in as needed. The variables are all optional, and their functionalities are listed below: 
+
+- `TURSO_DATABASE_URL`: Turso DB connection string. Without it, uses local SQLite.
+- `TURSO_AUTH_TOKEN`: Turso auth token. Without it, uses local SQLite.
+- `GEMINI_API_KEY`: Google Gemini API key. Without it, AI QC is skipped.
+- `GEMINI_MODEL`: Gemini model name. Defaults to `gemini-2.5-flash`.
+## Running Tests
+
+```bash
+uv run pytest tests/ -v
+```

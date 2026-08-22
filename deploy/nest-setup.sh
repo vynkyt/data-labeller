@@ -9,6 +9,8 @@
 #   APP_PORT=8123        port uvicorn listens on locally
 #   SUBDOMAIN=...        public hostname to publish (default: <hostname>.hackclub.app)
 #                        e.g. SUBDOMAIN=labeller.vkyt.hackclub.app
+#   GEMINI_API_KEY=...   use real Gemini for AI QC; if unset, the demo falls
+#                        back to GEMINI_MOCK_VERDICT=MIXED (~70% pass / 30% fail)
 #   REPO_URL=...         git repo to clone
 set -euo pipefail
 
@@ -49,6 +51,14 @@ if [ "$OLD_NEST_CADDY" = "0" ]; then
     # network, so the app must listen on all interfaces.
     BIND_HOST="0.0.0.0"
 fi
+# Real Gemini when an API key is provided; mock otherwise so AI QC works out of the box.
+if [ -n "${GEMINI_API_KEY:-}" ]; then
+    echo "==> Using real Gemini for AI QC (GEMINI_API_KEY provided)"
+    AI_ENV_LINE="Environment=GEMINI_API_KEY=$GEMINI_API_KEY"
+else
+    echo "==> No GEMINI_API_KEY set; using mixed mock verdicts for AI QC"
+    AI_ENV_LINE="Environment=GEMINI_MOCK_VERDICT=MIXED"
+fi
 cat > /etc/systemd/system/data-labeller.service <<EOF
 [Unit]
 Description=Data Labeller FastAPI app
@@ -62,6 +72,7 @@ Restart=always
 RestartSec=5
 WorkingDirectory=$APP_DIR/python
 Environment=AUTO_SEED=1
+$AI_ENV_LINE
 ExecStart=$HOME/.local/bin/uv run --no-sync uvicorn main:app --host $BIND_HOST --port $PORT
 
 [Install]
@@ -69,7 +80,8 @@ WantedBy=multi-user.target
 EOF
 
 systemctl daemon-reload
-systemctl enable --now data-labeller.service
+systemctl enable data-labeller.service
+systemctl restart data-labeller.service
 
 if [ "$OLD_NEST_CADDY" = "1" ]; then
     echo "==> Configuring Caddy to serve $SUBDOMAIN -> port $PORT"

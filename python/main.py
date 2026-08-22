@@ -56,11 +56,16 @@ def gemini_check(task):
     except ImportError:
         logger.error("google-genai not installed; skipping AI review")
         return None
-    mock = os.environ.get("GEMINI_MOCK_VERDICT")  # test-only: fake PASS/FAIL/ERROR without network
+    mock = os.environ.get("GEMINI_MOCK_VERDICT")  # test-only: fake PASS/FAIL/ERROR/MIXED without network
     if mock:
         if mock.upper() == "ERROR":
             logger.info("AI QC mocked verdict: ERROR (simulated API failure)")
             return None
+        if mock.upper() == "MIXED":
+            # demo mode: ~70% pass / 30% fail so the human QC queue has a realistic mix
+            passed = random.random() < 0.7
+            logger.info(f"AI QC mocked verdict (MIXED): {'PASS' if passed else 'FAIL'}")
+            return passed
         logger.info(f"AI QC mocked verdict: {mock}")
         return mock.upper().startswith("PASS")
     api_key = os.environ.get("GEMINI_API_KEY")

@@ -56,7 +56,7 @@ Besides the four-role pipeline, other features include:
 
 ## Live Demo
 
-A hosted demo is available here: **<renderurl>**
+A hosted demo is available [here](https://data-labeller-6rw0.onrender.com/).
 
 * No setup needed. Open the link and pick a role.
 * The free tier sleeps after ~15 minutes of inactivity; if it doesn't load, wait ~1 minute and refresh while it wakes up.

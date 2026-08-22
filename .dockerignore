@@ -1,0 +1,7 @@
+# never bake local state or secrets into the image
+python/.venv
+python/data-labeller.db
+python/.env
+**/__pycache__
+**/.pytest_cache
+.git

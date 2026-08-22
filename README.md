@@ -54,50 +54,97 @@ Besides the four-role pipeline, other features include:
 
 # Guide to Data Labeller
 
-## Try the UI
+## Live Demo
 
-View the UI <a href="https://data-labeller-three.vercel.app/" target="_blank">here</a>. Some functions such as retrieving tasks to label or check are not available unless you start up the backend (see below!).
+A hosted demo is available here: **<renderurl>**
+
+* No setup needed. Open the link and pick a role.
+* The free tier sleeps after ~15 minutes of inactivity; if it doesn't load, wait ~1 minute and refresh while it wakes up.
+* Demo data resets occasionally. To get the seeded sample job back, visit `<your-render-url-here>/admin.html`, or run the local setup below and use `seed.py`.
+* AI QC runs on the hosted demo only if a `GEMINI_API_KEY` was configured by the owner (see Turso / Gemini below). Everything else works regardless.
+
+## Prerequisites
+
+You need two things installed (no accounts, API keys, or databases required):
+
+1. **Git**: [git-scm.com/downloads](https://git-scm.com/downloads)
+2. **uv** (Python package manager); install with one of:
+
+   ```bash
+   # macOS / Linux
+   curl -LsSf https://astral.sh/uv/install.sh | sh
+
+   # Windows (PowerShell)
+   powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+   ```
+
+   Verify it works: `uv --version` should print a version number.
 
 ## Quick Start
 
-No accounts or configuration are needed to run the app locally.
+**Step 1: Clone the repository**
+
+```bash
+git clone https://github.com/vynkyt/data-labeller.git
+cd data-labeller
+```
+
+**Step 2: Start the server**
 
 ```bash
 cd python
 uv sync
-uv run uvicorn main:app --reload --reload-dir .
+uv run uvicorn main:app --reload
 ```
 
-This runs the app with a local SQLite database (`data-labeller.db`).
+The first run takes a minute or two while uv downloads Python and dependencies. When you see `Application startup complete.` the server is running. **Leave this terminal open** as closing it stops the app.
+
+**Step 3: Open the app**
+
+Open **http://localhost:8000** in your browser. You should see the Data Labeller landing page with three role cards (Admin, Labeller, QC Reviewer).
 
 ## Load Demo Data
 
-In a separate terminal:
+With the server still running from Step 2, open a **second terminal**, then:
 
 ```bash
+cd data-labeller/python
 uv run python seed.py
 ```
 
-This creates a sample job with 6 public images and 4 categories. Tasks appear immediately on the labeller page.
+You should see `Created demo job with 6 tasks`. This creates a sample job with 6 public images and 4 categories (animal, vehicle, food, nature).
 
-## Open the UI
+## Suggested Demo Walkthrough
 
-Open `index.html` in the project root in a browser to access the landing page, then pick a role:
+1. **Labeller**: go to http://localhost:8000/labeller.html, enter any name, and label a few of the seeded images.
+2. **AI QC**: automatic; Gemini samples and verifies labels if configured (skipped without an API key).
+3. **QC Reviewer**: go to http://localhost:8000/qc.html to review flagged labels: approve correct ones or send them back for relabelling.
+4. Optionally visit http://localhost:8000/admin.html to create your own job with any image URLs and categories.
 
-* **Admin**: creates jobs with media URLs and categories
-* **Labeller**: annotates media tasks
-* **QC Reviewer**: reviews AI-flagged labels
+To stop the app, press `Ctrl+C` in the first terminal.
+
+## Troubleshooting
+
+| Problem | Fix |
+| --- | --- |
+| `uv: command not found` | Install uv (see Prerequisites), then close and reopen your terminal. |
+| Port 8000 already in use | Stop whatever is using it, or start on another port: `uv run uvicorn main:app --reload --port 8001` (then use `http://localhost:8001` everywhere instead). |
+| `seed.py` prints "Could not connect" | The server isn't running. Complete Step 2 first and keep that terminal open. |
+| Seeded images don't load | The demo uses public placeholder images from picsum.photos — check your internet connection. |
+| Database issues / want a fresh start | Stop the server, delete `python/data-labeller.db`, and restart. |
 
 ---
 
 # Turso / Gemini
+
+Everything works out of the box with local SQLite and no API keys — this section is entirely optional.
 
 If you want to use Turso for the database and/or Gemini for AI quality control:
 
 1. Copy the example env file and fill in your credentials:
 
 ```bash
-cp ../.env.example .env
+cp .env.example .env
 ```
 
 2. Run with the env file loaded:
@@ -165,13 +212,14 @@ uv run --extra dev pytest tests/ -v
 ```text
 .
 ├── index.html
-├── .env.example
+├── admin.html
+├── labeller.html
+├── qc.html
+├── Dockerfile
+├── render.yaml
 ├── python/
 │   ├── main.py
 │   ├── seed.py
-│   └── ...
-├── tests/
-│   ├── ...
-│   └── test_e2e.py
+│   └── .env.example
 └── README.md
 ```

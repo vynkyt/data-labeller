@@ -3,6 +3,8 @@ import json
 import random
 import libsql
 from fastapi import FastAPI, Query
+from fastapi.responses import FileResponse
+from pathlib import Path
 from pydantic import BaseModel
 import uuid
 import logging
@@ -197,9 +199,26 @@ else:
     logger.info("No Turso credentials found — using local SQLite (data-labeller.db)")
     conn = libsql.connect("data-labeller.db")
 
-@app.get("/")
+UI_DIR = Path(__file__).resolve().parent.parent
+
+def _page(page: str):
+    return FileResponse(UI_DIR / page)
+
+@app.get("/", include_in_schema=False)
 def read_root():
-    return {"Hello": "World"}
+    return _page("index.html")
+
+@app.get("/admin.html", include_in_schema=False)
+def admin_page():
+    return _page("admin.html")
+
+@app.get("/labeller.html", include_in_schema=False)
+def labeller_page():
+    return _page("labeller.html")
+
+@app.get("/qc.html", include_in_schema=False)
+def qc_page():
+    return _page("qc.html")
 
 @app.get("/items/{item_id}")
 def read_item(item_id: int, q: str | None = None):

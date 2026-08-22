@@ -34,6 +34,7 @@
 </body>
 
 <script>
+    const API_BASE = location.protocol.startsWith("http") ? "" : "http://localhost:8000";
     const categoryInput = document.getElementById('category-in');
     const categoryList = document.getElementById('category-list');
     const urlInput = document.getElementById('url-in');
@@ -76,7 +77,7 @@
     }
 
     async function submitall() {
-        const url = 'http://localhost:8000/createjob';
+        const url = `${API_BASE}/createjob`;
         const data = {savedCats, savedUrls, "client_id": "apple"};
 
         document.getElementById('all-button').disabled = true;

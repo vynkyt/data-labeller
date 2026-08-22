@@ -46,9 +46,9 @@ def seed():
                 print(f"Categories: {', '.join(SAMPLE_CATEGORIES)}")
                 print()
                 print("Next steps:")
-                print("  1. Open index.html in a browser")
-                print("  2. Go to Labeller → enter your name → label tasks")
-                print("  3. Go to QC Reviewer → approve or relabel")
+                print("  1. Open http://localhost:8000/labeller.html")
+                print("  2. Enter your name and label tasks")
+                print("  3. Open http://localhost:8000/qc.html to approve or relabel")
             else:
                 print(f"Error: status {resp.status}")
     except urllib.error.URLError as e:

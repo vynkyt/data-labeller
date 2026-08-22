@@ -79,7 +79,7 @@
   </body>
 
   <script>
-    const API_BASE = "http://localhost:8000";
+    const API_BASE = location.protocol.startsWith("http") ? "" : "http://localhost:8000";
     let currentTask = null;
     let taskQueue = [];
 

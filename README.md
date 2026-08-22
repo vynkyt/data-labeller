@@ -7,7 +7,7 @@ Welcome to *Data Labeller*!
 </div>
 <br>
 
-An AI-assisted media annotation pipeline for images, videos, and audio datasets. Built with Python/FastAPI, Turso (libSQL), Gemini, and vanilla HTML/Tailwind CSS.
+A media annotation pipeline for images, videos, and audio datasets, with automated quality control using AI. Built with Python/FastAPI, Turso (libSQL), Gemini, and vanilla HTML/Tailwind CSS.
 
 ---
 

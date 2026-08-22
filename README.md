@@ -111,6 +111,21 @@ Copy `.env.example` to `.env` and fill in as needed. The variables are all optio
 - `GEMINI_MODEL`: Gemini model name. Defaults to `gemini-2.5-flash`.
 ## Running Tests
 
+Unit tests (no server or browser needed):
+
 ```bash
-uv run pytest tests/ -v
+uv run --extra dev pytest tests/ -v --ignore=tests/test_e2e.py
+```
+
+End-to-end tests: Creates a real uvicorn server on a temporary SQLite database with Gemini mocked (`GEMINI_MOCK_VERDICT`), and actual HTML pages are driven with Playwright. Requires a one-time browser install:
+
+```bash
+uv run --extra dev playwright install chromium
+uv run --extra dev pytest tests/test_e2e.py -v
+```
+
+Run all tests at once:
+
+```bash
+uv run --extra dev pytest tests/ -v
 ```

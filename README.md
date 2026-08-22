@@ -56,7 +56,7 @@ Besides the four-role pipeline, other features include:
 
 ## Live Demo
 
-A hosted demo is available here: **(nest-url)** 
+A hosted demo is available here: [nest link](https://datalabeller.vkyt.hackclub.app/)
 
 * The demo database is pre-seeded with a sample job (6 images, 4 categories), so the labeller page has tasks ready immediately.
 * AI QC runs on the hosted demo only if a `GEMINI_API_KEY` was configured by the owner (see Turso / Gemini below). Everything else works regardless.

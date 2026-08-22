@@ -56,7 +56,15 @@ Besides the four-role pipeline, other features include:
 
 ## Live Demo
 
-A hosted demo is available [here](https://data-labeller-6rw0.onrender.com/).
+A hosted demo is available here: **(nest-url)** 
+
+* The demo database is pre-seeded with a sample job (6 images, 4 categories), so the labeller page has tasks ready immediately.
+* AI QC runs on the hosted demo only if a `GEMINI_API_KEY` was configured by the owner (see Turso / Gemini below). Everything else works regardless.
+
+
+### Alternative: Render
+
+A hosted demo is also available in [render](https://data-labeller-6rw0.onrender.com/).
 
 * No setup needed. Open the link and pick a role.
 * The free tier sleeps after ~15 minutes of inactivity; if it doesn't load, wait ~1 minute and refresh while it wakes up.

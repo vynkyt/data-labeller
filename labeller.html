@@ -162,14 +162,13 @@
       });
 
       const url = task.url;
-      const ext = url.split(".").pop().toLowerCase();
+      const ext = url.split(/[?#]/)[0].split(".").pop().toLowerCase();
 
-      const imageExtensions = ["jpg", "jpeg", "png", "gif", "webp"];
       const videoExtensions = ["mp4", "webm", "ogg", "mov"];
       const audioExtensions = ["mp3", "wav", "aac", "m4a"];
 
-      if (imageExtensions.includes(ext)) {
-        const el = document.getElementById("image");
+      if (url.includes("embed")) {
+        const el = document.getElementById("iframe");
         el.src = url;
         el.style.height = "300px";
       } else if (videoExtensions.includes(ext)) {
@@ -180,12 +179,12 @@
         const el = document.getElementById("audio");
         el.src = url;
         el.style.height = "300px";
-      } else if (url.includes("embed")) {
-        const el = document.getElementById("iframe");
+      } else {
+        // images are the common case - also covers URLs without a file
+        // extension at the end (e.g. https://picsum.photos/seed/cat1/400/300)
+        const el = document.getElementById("image");
         el.src = url;
         el.style.height = "300px";
-      } else {
-        console.error("Unsupported media type:", url);
       }
 
       // Render categories

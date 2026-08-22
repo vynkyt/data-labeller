@@ -50,10 +50,11 @@
     };
 
     function categorybutton() {
-        const newValue = categoryInput.value.trim();
-        if (newValue) {
-            savedCats.push(newValue);
+        const newValues = categoryInput.value.split(/[\n,]+/).map(s => s.trim()).filter(Boolean);
+        if (newValues.length) {
+            savedCats.push(...newValues);
             localStorage.setItem('categories', JSON.stringify(savedCats));
+            categoryInput.value = '';
         }
         renderCatList()
 
@@ -68,15 +69,18 @@
     };
 
     function urlbutton() {
-        const newValue = urlInput.value.trim();
-        if (newValue) {
-            savedUrls.push(newValue);
+        const newValues = urlInput.value.split(/[\n,]+/).map(s => s.trim()).filter(Boolean);
+        if (newValues.length) {
+            savedUrls.push(...newValues);
             localStorage.setItem('urls', JSON.stringify(savedUrls));
+            urlInput.value = '';
         }
         renderUrlList()
     }
 
     async function submitall() {
+        categorybutton();
+        urlbutton();
         const url = `${API_BASE}/createjob`;
         const data = {savedCats, savedUrls, "client_id": "apple"};
 

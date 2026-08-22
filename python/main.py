@@ -155,10 +155,54 @@ def task():
     logger.info("scheduler tick")
     run_aiqc()
 
+DEMO_SEED_URLS = [
+    "https://picsum.photos/seed/cat1/400/300",
+    "https://picsum.photos/seed/dog2/400/300",
+    "https://picsum.photos/seed/bird3/400/300",
+    "https://picsum.photos/seed/car4/400/300",
+    "https://picsum.photos/seed/food5/400/300",
+    "https://picsum.photos/seed/nature6/400/300",
+]
+
+DEMO_SEED_CATEGORIES = ["animal", "vehicle", "food", "nature"]
+
+def seed_demo_job_if_empty():
+    """Create a demo job on first boot so a fresh deployment has tasks ready.
+
+    Only runs when AUTO_SEED=1 is set (used for hosted demos); local dev and
+    tests start with an empty database.
+    """
+    if os.environ.get("AUTO_SEED") != "1":
+        return
+    try:
+        count = conn.execute("SELECT COUNT(*) FROM Job").fetchone()[0]
+        if count:
+            logger.info("Jobs already exist - skipping demo seed")
+            return
+        job_id = str(uuid.uuid4())
+        conn.execute("INSERT INTO Job (job_id) VALUES (?)", (job_id,))
+        task_ids = []
+        categories = ", ".join(DEMO_SEED_CATEGORIES)
+        for url in DEMO_SEED_URLS:
+            task_id = str(uuid.uuid4())
+            conn.execute(
+                "INSERT INTO Task (task_id, url, client_id, job_id, categories, status) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                (task_id, url, "demo", job_id, categories, "open"),
+            )
+            task_ids.append(task_id)
+        conn.execute("INSERT INTO AI (job_id, total_tasks) VALUES (?, ?)", (job_id, len(task_ids)))
+        conn.execute("UPDATE Job SET task_id = ? WHERE job_id = ?", (str(task_ids), job_id))
+        conn.commit()
+        logger.info("Seeded demo job with %d tasks", len(task_ids))
+    except Exception as e:
+        logger.warning("Demo seeding skipped: %s", e)
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Apply schema migrations
     migrate()
+    seed_demo_job_if_empty()
 
     # Initialize the scheduler
     scheduler = AsyncIOScheduler()

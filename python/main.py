@@ -171,6 +171,14 @@ DEMO_SEED_URLS = [
 
 DEMO_SEED_CATEGORIES = ["animal", "vehicle", "food", "nature"]
 
+# (url, wrong_label) pairs pre-flagged by AI QC so reviewers have work waiting
+# on a fresh demo deployment. Demo-only: never used unless AUTO_SEED=1.
+DEMO_SEED_FLAGGED = [
+    ("https://picsum.photos/seed/flagged1/400/300", "vehicle"),
+    ("https://picsum.photos/seed/flagged2/400/300", "food"),
+    ("https://picsum.photos/seed/flagged3/400/300", "animal"),
+]
+
 def seed_demo_job_if_empty():
     """Create a demo job on first boot so a fresh deployment has tasks ready.
 
@@ -194,6 +202,15 @@ def seed_demo_job_if_empty():
                 "INSERT INTO Task (task_id, url, client_id, job_id, categories, status) "
                 "VALUES (?, ?, ?, ?, ?, ?)",
                 (task_id, url, "demo", job_id, categories, "open"),
+            )
+            task_ids.append(task_id)
+        for url, wrong_label in DEMO_SEED_FLAGGED:
+            task_id = str(uuid.uuid4())
+            conn.execute(
+                "INSERT INTO Task (task_id, url, client_id, job_id, labeller_id, label, "
+                "categories, status, ai_qc_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (task_id, url, "demo", job_id, "demo-labeller", wrong_label,
+                 categories, "qc_open", "fail"),
             )
             task_ids.append(task_id)
         conn.execute("INSERT INTO AI (job_id, total_tasks) VALUES (?, ?)", (job_id, len(task_ids)))

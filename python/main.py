@@ -54,12 +54,19 @@ def gemini_check(task):
     except ImportError:
         logger.error("google-genai not installed; skipping AI review")
         return None
+    mock = os.environ.get("GEMINI_MOCK_VERDICT")  # test-only: fake PASS/FAIL/ERROR without network
+    if mock:
+        if mock.upper() == "ERROR":
+            logger.info("AI QC mocked verdict: ERROR (simulated API failure)")
+            return None
+        logger.info(f"AI QC mocked verdict: {mock}")
+        return mock.upper().startswith("PASS")
     api_key = os.environ.get("GEMINI_API_KEY")
     if not api_key:
         logger.error("GEMINI_API_KEY not set; skipping AI review")
         return None
     client = genai.Client(api_key=api_key)
-    model = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
+    model = os.environ.get("GEMINI_MODEL", "gemini-3.1-flash-lite") #  gemini-2.5-flash
     prompt = (
         f"You are an AI quality checker for a data labelling pipeline.\n"
         f"Media url: {url}\n"
@@ -286,13 +293,14 @@ def get_task(labeller_id: str | None = None):
         return {"message": "there are no open tasks"}
 
     update_sql = "UPDATE Task SET status = 'labelling', locked_at = ?"
-    update_params: list = [time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime()), task_obj[0].task_id]
+    update_params: list = [time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime())]
 
     if labeller_id:
         update_sql += ", labeller_id = ?"
         update_params.append(labeller_id)
 
     update_sql += " WHERE task_id = ?"
+    update_params.append(task_obj[0].task_id)
     conn.execute(update_sql, update_params)
     conn.commit()
     logger.info(f"Fetched task {task_obj[0].task_id} for labeller {labeller_id}")
